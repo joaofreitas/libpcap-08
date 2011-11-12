@@ -304,6 +304,8 @@ print_tcp_header(const struct libnet_tcp_hdr *tcp)
 	
 	printf("   Src port: %d\n", ntohs(tcp->th_sport));
 	printf("   Dst port: %d\n", ntohs(tcp->th_dport));
+	printf("   Seq Num: %u\n", tcp->th_seq);
+	printf("   Ack: %u\n", tcp->th_ack);
 	printf("   Size tcp packet: %d\n", size_tcp);
 	
 	return size_tcp;
@@ -359,7 +361,7 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 	ethernet = (struct sniff_ethernet*)(packet);
 	
 	/* define/compute ip header offset */
-	ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
+	ip = (struct sniff_ip*)(packet + LIBNET_ETH_H);
 	size_ip = IP_HL(ip)*4;
 	if (size_ip < 20) {
 		printf("   * Invalid IP header length: %u bytes\n", size_ip);
