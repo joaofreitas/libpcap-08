@@ -243,31 +243,6 @@ struct sniff_ip {
 #define IP_HL(ip)               (((ip)->ip_vhl) & 0x0f)
 #define IP_V(ip)                (((ip)->ip_vhl) >> 4)
 
-/* TCP header */
-typedef u_int tcp_seq;
-
-struct sniff_tcp {
-        u_short th_sport;               /* source port */
-        u_short th_dport;               /* destination port */
-        tcp_seq th_seq;                 /* sequence number */
-        tcp_seq th_ack;                 /* acknowledgement number */
-        u_char  th_offx2;               /* data offset, rsvd */
-#define TH_OFF(th)      (((th)->th_offx2 & 0xf0) >> 4)
-        u_char  th_flags;
-        #define TH_FIN  0x01
-        #define TH_SYN  0x02
-        #define TH_RST  0x04
-        #define TH_PUSH 0x08
-        #define TH_ACK  0x10
-        #define TH_URG  0x20
-        #define TH_ECE  0x40
-        #define TH_CWR  0x80
-        #define TH_FLAGS        (TH_FIN|TH_SYN|TH_RST|TH_ACK|TH_URG|TH_ECE|TH_CWR)
-        u_short th_win;                 /* window */
-        u_short th_sum;                 /* checksum */
-        u_short th_urp;                 /* urgent pointer */
-};
-
 void
 got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
 
@@ -277,11 +252,11 @@ print_app_banner(void);
 void
 print_app_usage(void);
 
-void
+int
 print_tcp_header(const struct libnet_tcp_hdr *tcp);
 
-void
-print_udp_header(const struct sniff_ip *ip, const u_char *packet);
+int
+print_udp_header(const struct libnet_udp_hdr *udp);
 
 void
 print_payload(const char *payload, int size_payload);
@@ -317,7 +292,10 @@ print_app_usage(void)
 return;
 }
 
-void
+/*
+ * print tcp header and return the size of packet
+ */
+int
 print_tcp_header(const struct libnet_tcp_hdr *tcp)
 {
 	int size_tcp;
@@ -326,19 +304,33 @@ print_tcp_header(const struct libnet_tcp_hdr *tcp)
 	
 	printf("   Src port: %d\n", ntohs(tcp->th_sport));
 	printf("   Dst port: %d\n", ntohs(tcp->th_dport));
-	printf("   Size tcp: %d\n", size_tcp);
+	printf("   Size tcp packet: %d\n", size_tcp);
+	
+	return size_tcp;
 	
 }
 
-void
-print_udp_header(const struct sniff_ip *ip, const u_char *packet)
+/*
+ * print udp header and return the size of packet
+ */
+int
+print_udp_header(const struct libnet_udp_hdr *udp)
 {
+	int size_udp;
+
+	size_udp = udp->uh_ulen;
+	
+	printf("   Src port: %d\n", ntohs(udp->uh_sport));
+	printf("   Dst port: %d\n", ntohs(udp->uh_dport));
+	printf("   Size udp packet: %d\n", size_udp);
+	
+	return size_udp;
 }
 
 void print_payload(const char *payload, int size_payload)
 {
 	if (size_payload > 0) {
-		printf("   Payload (%d bytes):\n", size_payload);
+		printf("   Payload (%d bytes)\n", size_payload);
 	}
 }
 
@@ -352,11 +344,12 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 	const struct sniff_ethernet *ethernet;  /* The ethernet header [1] */
 	const struct sniff_ip *ip;              /* The IP header */
 	const struct libnet_tcp_hdr *tcp;		/* The TCP header */
+	const struct libnet_udp_hdr *udp;		/* The UDP header */
 	const char *payload;					/* The Payload */
 	
 	static int count = 1;                   /* packet counter */
 	int size_ip;
-	int size_tcp;
+	int size_transport_layer;
 	int size_payload;
 	
 	printf("\nPacket number %d:\n", count);
@@ -382,18 +375,15 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 		case IPPROTO_TCP:
 			printf("   Protocol: TCP\n");
 			
-			size_ip = IP_HL(ip)*4;
 			tcp = (struct libnet_tcp_hdr*)(packet + SIZE_ETHERNET + size_ip);
-			print_tcp_header(tcp);
-			
-			payload = (char *)(packet + SIZE_ETHERNET + size_ip + size_tcp);	/* define/compute tcp payload (segment) offset */
-			size_payload = ntohs(ip->ip_len) - (size_ip + size_tcp);			/* compute tcp payload (segment) size */
-			print_payload(payload, size_payload);
+			size_transport_layer = print_tcp_header(tcp);
 			break;
 		case IPPROTO_UDP:
 			printf("   Protocol: UDP\n");
-			print_udp_header(ip, packet);
-			return;
+			
+			udp = (struct libnet_udp_hdr*)(packet + SIZE_ETHERNET + size_ip);
+			size_transport_layer = print_udp_header(udp);
+			break;
 		case IPPROTO_ICMP:
 			printf("   Protocol: ICMP\n");
 			return;
@@ -405,7 +395,11 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 			return;
 	}
 	
-return;
+	payload = (char *)(packet + SIZE_ETHERNET + size_ip + size_transport_layer);	/* define/compute tcp payload (segment) offset */
+	size_payload = ntohs(ip->ip_len) - (size_ip + size_transport_layer);			/* compute tcp payload (segment) size */
+	print_payload(payload, size_payload);
+	
+	return;
 }
 
 int main(int argc, char **argv)

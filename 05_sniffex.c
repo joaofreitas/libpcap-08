@@ -351,6 +351,7 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 			break;
 		case IPPROTO_UDP:
 			printf("   Protocol: UDP\n");
+			exit(0);
 			return;
 		case IPPROTO_ICMP:
 			printf("   Protocol: ICMP\n");
