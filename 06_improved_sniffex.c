@@ -368,7 +368,7 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 			tcp = (struct libnet_tcp_hdr*)(packet + LIBNET_ETH_H + size_ip);
 			size_transport_layer = print_tcp_header(tcp);
 			break;
-		case IPPROTO_UDP:
+		case IPPROTO_UDPA:
 			printf("   Protocol: UDP\n");
 			
 			udp = (struct libnet_udp_hdr*)(packet + LIBNET_ETH_H + size_ip);
