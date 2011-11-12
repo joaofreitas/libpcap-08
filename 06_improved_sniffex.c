@@ -211,23 +211,7 @@
 /* default snap length (maximum bytes per packet to capture) */
 #define SNAP_LEN 1518
 
-/* IP header */
-struct sniff_ip {
-        u_char  ip_vhl;                 /* version << 4 | header length >> 2 */
-        u_char  ip_tos;                 /* type of service */
-        u_short ip_len;                 /* total length */
-        u_short ip_id;                  /* identification */
-        u_short ip_off;                 /* fragment offset field */
-        #define IP_RF 0x8000            /* reserved fragment flag */
-        #define IP_DF 0x4000            /* dont fragment flag */
-        #define IP_MF 0x2000            /* more fragments flag */
-        #define IP_OFFMASK 0x1fff       /* mask for fragmenting bits */
-        u_char  ip_ttl;                 /* time to live */
-        u_char  ip_p;                   /* protocol */
-        u_short ip_sum;                 /* checksum */
-        struct  in_addr ip_src,ip_dst;  /* source and dest address */
-};
-#define IP_HL(ip)               (((ip)->ip_vhl) & 0x0f)
+#define IP_HL(ip)               (((ip)->ip_v << 4 | (ip)->ip_hl) & 0x0f)
 #define IP_V(ip)                (((ip)->ip_vhl) >> 4)
 
 void
@@ -316,6 +300,9 @@ print_udp_header(const struct libnet_udp_hdr *udp)
 	return size_udp;
 }
 
+/*
+ * print only payload size, because payload is too long.
+ */
 void print_payload(const char *payload, int size_payload)
 {
 	if (size_payload > 0) {
@@ -331,7 +318,7 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 {
 	/* declare pointers to packet headers */
 	const struct libnet_ethernet_hdr *ethernet;  /* The ethernet header [1] */
-	const struct sniff_ip *ip;              /* The IP header */
+	const struct libnet_ipv4_hdr *ip;              /* The IP header */
 	const struct libnet_tcp_hdr *tcp;		/* The TCP header */
 	const struct libnet_udp_hdr *udp;		/* The UDP header */
 	const char *payload;					/* The Payload */
@@ -346,10 +333,10 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 	
 	/* define ethernet header */
 	ethernet = (struct libnet_ethernet_hdr*)(packet);
-	printf("Ethernet type: %d\n", ntohs(ethernet->ether_type));
+	printf("Ethernet type: 0x0%x\n", ntohs(ethernet->ether_type));
 	
 	/* define/compute ip header offset */
-	ip = (struct sniff_ip*)(packet + LIBNET_ETH_H);
+	ip = (struct libnet_ipv4_hdr*)(packet + LIBNET_ETH_H);
 	size_ip = IP_HL(ip)*4;
 	if (size_ip < 20) {
 		printf("   * Invalid IP header length: %u bytes\n", size_ip);
