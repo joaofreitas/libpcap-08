@@ -320,7 +320,6 @@ return;
 void
 print_tcp_header(const struct libnet_tcp_hdr *tcp)
 {
-	                    /* Packet payload */
 	int size_tcp;
 
 	size_tcp = tcp->th_off * 4;
@@ -357,6 +356,8 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 	
 	static int count = 1;                   /* packet counter */
 	int size_ip;
+	int size_tcp;
+	int size_payload;
 	
 	printf("\nPacket number %d:\n", count);
 	count++;
