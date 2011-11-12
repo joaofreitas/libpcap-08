@@ -1,7 +1,7 @@
 /*
  * sniffex.c
  *
- * Sniffer example of TCP/IP packet capture using libpcap.
+ * Sniffer example of TCP/IP packet capture using libpcap and libnet.
  * 
  * Version 0.1.1 (2005-07-05)
  * Copyright (c) 2005 The Tcpdump Group
@@ -211,19 +211,6 @@
 /* default snap length (maximum bytes per packet to capture) */
 #define SNAP_LEN 1518
 
-/* ethernet headers are always exactly 14 bytes [1] */
-#define SIZE_ETHERNET 14
-
-/* Ethernet addresses are 6 bytes */
-//#define ETHER_ADDR_LEN	6
-
-/* Ethernet header */
-struct sniff_ethernet {
-        u_char  ether_dhost[ETHER_ADDR_LEN];    /* destination host address */
-        u_char  ether_shost[ETHER_ADDR_LEN];    /* source host address */
-        u_short ether_type;                     /* IP? ARP? RARP? etc */
-};
-
 /* IP header */
 struct sniff_ip {
         u_char  ip_vhl;                 /* version << 4 | header length >> 2 */
@@ -343,7 +330,7 @@ void
 got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 {
 	/* declare pointers to packet headers */
-	const struct sniff_ethernet *ethernet;  /* The ethernet header [1] */
+	const struct libnet_ethernet_hdr *ethernet;  /* The ethernet header [1] */
 	const struct sniff_ip *ip;              /* The IP header */
 	const struct libnet_tcp_hdr *tcp;		/* The TCP header */
 	const struct libnet_udp_hdr *udp;		/* The UDP header */
@@ -358,7 +345,8 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 	count++;
 	
 	/* define ethernet header */
-	ethernet = (struct sniff_ethernet*)(packet);
+	ethernet = (struct libnet_ethernet_hdr*)(packet);
+	printf("Ethernet type: %d\n", ntohs(ethernet->ether_type));
 	
 	/* define/compute ip header offset */
 	ip = (struct sniff_ip*)(packet + LIBNET_ETH_H);
@@ -377,13 +365,13 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 		case IPPROTO_TCP:
 			printf("   Protocol: TCP\n");
 			
-			tcp = (struct libnet_tcp_hdr*)(packet + SIZE_ETHERNET + size_ip);
+			tcp = (struct libnet_tcp_hdr*)(packet + LIBNET_ETH_H + size_ip);
 			size_transport_layer = print_tcp_header(tcp);
 			break;
 		case IPPROTO_UDP:
 			printf("   Protocol: UDP\n");
 			
-			udp = (struct libnet_udp_hdr*)(packet + SIZE_ETHERNET + size_ip);
+			udp = (struct libnet_udp_hdr*)(packet + LIBNET_ETH_H + size_ip);
 			size_transport_layer = print_udp_header(udp);
 			break;
 		case IPPROTO_ICMP:
@@ -397,7 +385,7 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 			return;
 	}
 	
-	payload = (char *)(packet + SIZE_ETHERNET + size_ip + size_transport_layer);	/* define/compute tcp payload (segment) offset */
+	payload = (char *)(packet + LIBNET_ETH_H + size_ip + size_transport_layer);	/* define/compute tcp payload (segment) offset */
 	size_payload = ntohs(ip->ip_len) - (size_ip + size_transport_layer);			/* compute tcp payload (segment) size */
 	print_payload(payload, size_payload);
 	
